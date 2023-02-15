@@ -15,7 +15,7 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Build image
-      run: docker build --tag ghcr.io/${{ github.actor }}/deploy-vapor-app:latest .
+      run: docker build --tag ghcr.io/${{ github.actor }}/${{ github.event.repository.name }}/deploy-vapor-app:latest .
 
     - name: Push image to container registry
-      run: docker push ghcr.io/${{ github.actor }}/deploy-vapor-app:latest
+      run: docker push ghcr.io/${{ github.actor }}/${{ github.event.repository.name }}/deploy-vapor-app:latest
