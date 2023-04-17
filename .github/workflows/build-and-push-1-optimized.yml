@@ -1,0 +1,54 @@
+name: Build and Push (optimized)
+on: push
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Create SHA-1 for Package.resolved
+        run: |
+          md5=($(sha1sum Package.resolved))
+          echo $md5
+          echo "CACHE_SHA1=$md5" >> $GITHUB_ENV
+
+      - name: Cache Swift
+        id: cache-swift
+        uses: actions/cache@v3
+        with:
+          path: .build
+          key: ${{ env.CACHE_SHA1 }}-swift
+
+      - name: Resolve Dependencies
+        run: swift package resolve
+  
+      - name: Build
+        run: swift build -c release -Xswiftc -O --static-swift-stdlib
+  
+      - name: Create staging directory
+        run: |
+          mkdir staging
+          cp "$(swift build -c release --show-bin-path)/Run" ./staging
+          find -L "$(swift build -c release --show-bin-path)/" -regex '.*\.resources$' -exec cp -Ra {} ./staging/ \;
+          [ -d ./Public ] && { mv ./Public ./staging/Public && chmod -R a-w ./staging/Public; } || true
+          [ -d ./Resources ] && { mv ./Resources ./staging/Resources && chmod -R a-w ./staging/Resources; } || true
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Docker-image
+        env:
+          PACKAGE_NAME: tutorial-vapor-swift
+        run: |
+          docker build --tag ghcr.io/${{ github.actor }}/$PACKAGE_NAME:latest .
+      
+      - name: Push (latest)
+        env:
+          PACKAGE_NAME: tutorial-vapor-swift
+        run: |
+          docker push ghcr.io/${{ github.actor }}/$PACKAGE_NAME:latest
